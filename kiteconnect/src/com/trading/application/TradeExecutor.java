@@ -22,7 +22,7 @@ public class TradeExecutor {
 
     public ExampleImpl exampleImpl = new ExampleImpl();
     public Instrument bankNiftyFuture = null;
-
+    public KiteConnect kiteConnect = kiteConnect = new KiteConnect("ukm5op3tp70x5bl2", true);
     public List<Instrument> listOfFNOInst = null;
     public List<Instrument> bankNiftyOptions = new ArrayList<Instrument>();
     public Map<String, Long> callMoneynessMap = new HashMap<String, Long>();
@@ -82,7 +82,7 @@ public class TradeExecutor {
                    Once an access token is received it should be stored in preferences or database for further usage.
                  */
             String requestToken = "";
-
+            String apiSecret = "df1wnphuf8f2n5k43m9afey94m3ehphn";
 
             User user =  kiteConnect.generateSession(requestToken, apiSecret);
             kiteConnect.setAccessToken(user.accessToken);
