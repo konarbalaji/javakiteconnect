@@ -51,4 +51,35 @@ public class Constants {
     public static String INSTRUMENTS_SEGMENTS_COMMODITY = "commodity";
     public static String INSTRUMENTS_SEGMENTS_FUTURES = "futures";
     public static String INSTRUMENTS_SEGMENTS_CURRENCY = "currency";
+
+    public static String CALL_OPTION = "CALL";
+    public static String PUT_OPTION = "PUT";
+
+    public static String ATM = "ATM";
+    public static String ITM1 = "ITM1";
+    public static String ITM2 = "ITM2";
+    public static String ITM3 = "ITM3";
+    public static String ITM4 = "ITM4";
+    public static String ITM5 = "ITM5";
+    public static String OTM1 = "OTM1";
+    public static String OTM2 = "OTM2";
+    public static String OTM3 = "OTM3";
+    public static String OTM4 = "OTM4";
+    public static String OTM5 = "OTM5";
+
+    public static String PE_INDICATOR = "PE";
+    public static String CE_INDICATOR = "CE";
+
+    public static String ATM_CE_BUY_ORD = "CE_BUY_ORDER";
+    public static String ATM_CE_SELL_ORD = "CE_SELL_ORDER";
+
+    public static String ATM_PE_BUY_ORD = "PE_BUY_ORDER";
+    public static String ATM_PE_SELL_ORD = "PE_SELL_ORDER";
+
+    public static String ORDER_COMPLETED = "COMPLETE";
+    public static String ORDER_OPEN = "OPEN";
+
+    public static int QUANTITY = 60;
+    public static int ANALYZE_INTERVAL = 30;
+
 }

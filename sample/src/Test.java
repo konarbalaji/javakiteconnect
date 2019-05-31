@@ -1,3 +1,4 @@
+import com.com.selenium.web.RequestTokenSelenium;
 import com.neovisionaries.ws.client.WebSocketException;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.SessionExpiryHook;
@@ -19,19 +20,19 @@ public class Test {
         try {
                 // First you should get request_token, public_token using kitconnect login and then use request_token, public_token, api_secret to make any kiteConnect api call.
                 // Initialize KiteSdk with your apiKey.
-                KiteConnect kiteConnect = new KiteConnect("xxxxyyyyzzzz");
+                //KiteConnect kiteConnect = new KiteConnect("ukm5op3tp70x5bl2");
 
                 //If you wish to enable debug logs send true in the constructor, this will log request and response.
-                //KiteConnect kiteConnect = new KiteConnect("xxxxyyyyzzzz", true);
+                KiteConnect kiteConnect = new KiteConnect("ukm5op3tp70x5bl2", true);
 
                 // If you wish to set proxy then pass proxy as a second parameter in the constructor with api_key. syntax:- new KiteConnect("xxxxxxyyyyyzzz", proxy).
                 //KiteConnect kiteConnect = new KiteConnect("xxxxyyyyzzzz", userProxy, false);
 
                 // Set userId
-                kiteConnect.setUserId("xxxyyy");
+                kiteConnect.setUserId("MS9491");
 
                 // Get login url
-                String url = kiteConnect.getLoginURL();
+                final String url = kiteConnect.getLoginURL();
 
                 // Set session expiry callback.
                 kiteConnect.setSessionExpiryHook(new SessionExpiryHook() {
@@ -45,7 +46,10 @@ public class Test {
                    A request token is valid for only a couple of minutes and can be used only once. An access token is valid for one whole day. Don't call this method for every app run.
                    Once an access token is received it should be stored in preferences or database for further usage.
                  */
-                User user =  kiteConnect.generateSession("xxxxxtttyyy", "xxxxxxxyyyyy");
+                String requestToken = ""; // = new RequestTokenSelenium().getRequestToken(url);
+                String apiSecret = "df1wnphuf8f2n5k43m9afey94m3ehphn";
+
+                User user =  kiteConnect.generateSession(requestToken, apiSecret);
                 kiteConnect.setAccessToken(user.accessToken);
                 kiteConnect.setPublicToken(user.publicToken);
 
@@ -55,11 +59,11 @@ public class Test {
 
                 examples.getMargins(kiteConnect);
 
-                examples.placeOrder(kiteConnect);
+                /*String orderId = examples.placeBuyOrder(kiteConnect);
 
-                examples.modifyOrder(kiteConnect);
+                examples.modifyOrder(kiteConnect, orderId);
 
-                examples.cancelOrder(kiteConnect);
+                examples.cancelOrder(kiteConnect, orderId);
 
                 examples.placeBracketOrder(kiteConnect);
 
@@ -93,7 +97,7 @@ public class Test {
 
                 examples.getAllInstruments(kiteConnect);
 
-                examples.getInstrumentsForExchange(kiteConnect);
+                examples.getInstrumentsForExchange(kiteConnect);*/
 
                 examples.getQuote(kiteConnect);
 

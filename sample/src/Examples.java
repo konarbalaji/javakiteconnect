@@ -36,7 +36,7 @@ public class Examples {
     }
 
     /**Place order.*/
-    public void placeOrder(KiteConnect kiteConnect) throws KiteException, IOException {
+    public String placeOrder(KiteConnect kiteConnect) throws KiteException, IOException {
         /** Place order method requires a orderParams argument which contains,
          * tradingsymbol, exchange, transaction_type, order_type, quantity, product, price, trigger_price, disclosed_quantity, validity
          * squareoff_value, stoploss_value, trailing_stoploss
@@ -61,6 +61,7 @@ public class Examples {
 
         Order order = kiteConnect.placeOrder(orderParams, Constants.VARIETY_REGULAR);
         System.out.println(order.orderId);
+        return order.orderId;
     }
 
     /** Place bracket order.*/
@@ -103,7 +104,7 @@ public class Examples {
         orderParams.quantity = 1;
         orderParams.transactionType = Constants.TRANSACTION_TYPE_BUY;
         orderParams.orderType = Constants.ORDER_TYPE_MARKET;
-        orderParams.tradingsymbol = "SOUTHBANK";
+        orderParams.tradingsymbol = "ASHOKLEY";
         orderParams.exchange = Constants.EXCHANGE_NSE;
         orderParams.validity = Constants.VALIDITY_DAY;
         orderParams.triggerPrice = 30.5;
@@ -160,7 +161,7 @@ public class Examples {
     }
 
     /** Modify order.*/
-    public void modifyOrder(KiteConnect kiteConnect) throws KiteException, IOException {
+    public void modifyOrder(KiteConnect kiteConnect, String orderId) throws KiteException, IOException {
         // Order modify request will return order model which will contain only order_id.
         OrderParams orderParams =  new OrderParams();
         orderParams.quantity = 1;
@@ -172,7 +173,7 @@ public class Examples {
         orderParams.validity = Constants.VALIDITY_DAY;
         orderParams.price = 122.25;
 
-        Order order21 = kiteConnect.modifyOrder("180116000984900", orderParams, Constants.VARIETY_REGULAR);
+        Order order21 = kiteConnect.modifyOrder("orderId", orderParams, Constants.VARIETY_REGULAR);
         System.out.println(order21.orderId);
     }
 
@@ -227,11 +228,11 @@ public class Examples {
     }
 
     /** Cancel an order*/
-    public void cancelOrder(KiteConnect kiteConnect) throws KiteException, IOException {
+    public void cancelOrder(KiteConnect kiteConnect, String orderId) throws KiteException, IOException {
         // Order modify request will return order model which will contain only order_id.
         // Cancel order will return order model which will only have orderId.
-        Order order2 = kiteConnect.cancelOrder("180116000727266", Constants.VARIETY_REGULAR);
-        System.out.println(order2.orderId);
+        Order order2 = kiteConnect.cancelOrder(orderId, Constants.VARIETY_REGULAR);
+        System.out.println("Cancelled Order ID >> " + order2.orderId);
     }
 
     public void exitBracketOrder(KiteConnect kiteConnect) throws KiteException, IOException {
@@ -310,8 +311,8 @@ public class Examples {
         Date from =  new Date();
         Date to = new Date();
         try {
-            from = formatter.parse("2018-01-03 12:00:00");
-            to = formatter.parse("2018-01-03 22:49:12");
+            from = formatter.parse("2019-05-17 12:00:00");
+            to = formatter.parse("2019-05-03 17:49:12");
         }catch (ParseException e) {
             e.printStackTrace();
         }
@@ -390,7 +391,7 @@ public class Examples {
     }
 
     /** Demonstrates com.zerodhatech.ticker connection, subcribing for instruments, unsubscribing for instruments, set mode of tick data, com.zerodhatech.ticker disconnection*/
-    public void tickerUsage(KiteConnect kiteConnect, ArrayList<Long> tokens) throws IOException, WebSocketException, KiteException {
+    public void tickerUsage(KiteConnect kiteConnect, final ArrayList<Long> tokens) throws IOException, WebSocketException, KiteException {
         /** To get live price use websocket connection.
          * It is recommended to use only one websocket connection at any point of time and make sure you stop connection, once user goes out of app.
          * custom url points to new endpoint which can be used till complete Kite Connect 3 migration is done. */
