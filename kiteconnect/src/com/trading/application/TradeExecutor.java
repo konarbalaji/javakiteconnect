@@ -32,6 +32,8 @@ public class TradeExecutor {
     public Map<String, Instrument> bankNiftyOptionsMap = new HashMap<String, Instrument>();
     public Map<String, Order> orderTracker = new HashMap<String, Order>();
     public int noOfProfitableOrders = 0;
+    public OHLCData lastOhlc = new OHLCData();
+    public List<Double> lastMinPriceList = new ArrayList<>();
 
     Logger logger = Logger.getLogger(TradeExecutor.class.getName());
 
@@ -90,7 +92,7 @@ public class TradeExecutor {
 
             exampleImpl.getProfile(kiteConnect);
 
-            exampleImpl.getMargins(kiteConnect);
+            //exampleImpl.getMargins(kiteConnect);
 
             listOfFNOInst =  exampleImpl.getInstrumentsForExchange(kiteConnect,"NFO");
 
@@ -106,8 +108,8 @@ public class TradeExecutor {
             String currentMonth = sdfMonth.format(Calendar.getInstance().getTime());
 
             //List<String> tradingSymbols = new ArrayList<String>();
-            //futureName = "BANKNIFTY19 " + currentMonth.toUpperCase() + " FUT";
-            futureName = "BANKNIFTY19JUNFUT";
+            futureName = "BANKNIFTY19" + currentMonth.toUpperCase() + "FUT";
+            //futureName = "BANKNIFTY19JULFUT";
 
             for(Instrument instr : listOfFNOInst){
 
@@ -174,7 +176,7 @@ public class TradeExecutor {
                 atTheMoney =   (quot*100);
             }*/
 
-            logger.info("atTheMoney price >> " + atTheMoney);;
+            logger.info("Price of ATM Strike - "+bankNiftyFuture.getTradingsymbol()+" >> " + atTheMoney);;
             if(callPutIndicator.equals(Constants.CALL_OPTION)){
 
                 moneynessMap.put(Constants.ITM5,atTheMoney-500);
@@ -226,8 +228,8 @@ public class TradeExecutor {
 
             for(Map.Entry<String,Instrument> entry : bankNiftyOptionsMap.entrySet()){
                 //if(!(entry.getValue().getTradingsymbol().equals(""))){
-                    Instrument ins = entry.getValue();
-                    if(ins.getStrike().equals(Double.toString(moneynessMap.get(MoneynessStatus))) && ins.instrument_type.equals(PECE_IND)){
+                    Instrument bankNiftyOptInstr = entry.getValue();
+                    if(bankNiftyOptInstr.getStrike().equals(Double.toString(moneynessMap.get(MoneynessStatus))) && bankNiftyOptInstr.instrument_type.equals(PECE_IND)){
                         return entry.getValue();
                     }
                 }
@@ -242,7 +244,7 @@ public class TradeExecutor {
 
 
 
-    public Order placeBuyOrder(KiteConnect kiteConnect, int qty, String tradingsymbol, String buyOrSell, double price){
+    public Order placeBuyOrder(KiteConnect kiteConnect, int qty, Instrument instrToTrade, String buyOrSell, double price){
 
         logger.info("-------------- Inside placeBuyOrder ---------------------");
 
@@ -251,7 +253,7 @@ public class TradeExecutor {
             OrderParams orderParams = new OrderParams();
             orderParams.quantity = qty;
             orderParams.orderType = Constants.ORDER_TYPE_LIMIT;
-            orderParams.tradingsymbol = tradingsymbol;
+            orderParams.tradingsymbol = instrToTrade.tradingsymbol;
             orderParams.product = Constants.PRODUCT_NRML;
             orderParams.exchange = Constants.EXCHANGE_NFO;
             orderParams.transactionType = buyOrSell;
@@ -261,8 +263,8 @@ public class TradeExecutor {
             orderParams.tag = "myTag"; //tag is optional and it cannot be more than 8 characters and only alphanumeric is allowed
 
             order = kiteConnect.placeOrder(orderParams, Constants.VARIETY_REGULAR);
-            waitForOrderToBeFilled(order);
-            logger.info("OrderId of " + tradingsymbol + " is >> " + order.orderId);
+            waitForOrderToBeFilled(order, instrToTrade);
+            logger.info("OrderId of " + instrToTrade.tradingsymbol + " is >> " + order.orderId);
             return order;
 
         }catch(KiteException e){
@@ -276,7 +278,7 @@ public class TradeExecutor {
         return order;
     }
 
-    public Order placeSellOrder(KiteConnect kiteConnect, Order parentBuyOrder, int qty, String tradingsymbol, String buyOrSell, double price){
+    public Order placeSellOrder(KiteConnect kiteConnect, Order parentBuyOrder, int qty, Instrument instrToTrade, String buyOrSell, double price){
 
         logger.info("-------------- Inside placeSellOrder ---------------------");
 
@@ -285,7 +287,7 @@ public class TradeExecutor {
             OrderParams orderParams = new OrderParams();
             orderParams.quantity = qty;
             orderParams.orderType = Constants.ORDER_TYPE_LIMIT;
-            orderParams.tradingsymbol = tradingsymbol;
+            orderParams.tradingsymbol = instrToTrade.tradingsymbol;
             orderParams.product = Constants.PRODUCT_NRML;
             orderParams.exchange = Constants.EXCHANGE_NFO;
             orderParams.transactionType = buyOrSell;
@@ -296,7 +298,7 @@ public class TradeExecutor {
 
             Order modifiedOrder = kiteConnect.modifyOrder(parentBuyOrder.orderId, orderParams, Constants.VARIETY_REGULAR);
             System.out.println("modifiedOrder returned from  placeSellOrder >> " + modifiedOrder.orderId);
-            //waitForSquareOff(modifiedOrder);
+            waitForSquareOff(modifiedOrder, instrToTrade);
             return modifiedOrder;
 
         }catch(KiteException e){
@@ -309,14 +311,14 @@ public class TradeExecutor {
     }
 
 
-    public void waitForOrderToBeFilled(Order order){
+    public void waitForOrderToBeFilled(Order order, Instrument instrToTrade){
 
         logger.info("-------------- Inside waitForOrderToBeFilled ---------------------");
 
         boolean isOrderPending = true;
         try{
 
-            List<Order> orderHist = kiteConnect.getOrderHistory(order.orderId);
+            /*List<Order> orderHist = kiteConnect.getOrderHistory(order.orderId);
             for(Order stage : orderHist){
 
                 if(stage.filledQuantity.equalsIgnoreCase(Integer.toString(Constants.QUANTITY)) && stage.status.equalsIgnoreCase(Constants.ORDER_COMPLETED)){
@@ -331,25 +333,87 @@ public class TradeExecutor {
             if(isOrderPending){
                 Thread.sleep(2000);
                 waitForOrderToBeFilled(order);
-            }
+            }*/
 
+
+            while(isOrderPending){
+
+                Map<String, List<Position>> posList = exampleImpl.getPositions(kiteConnect);
+                int noOfPos = posList.get("net").size();
+                for(int i=0; i< noOfPos; i++){
+                    if(posList.get("net").get(i).tradingSymbol.equalsIgnoreCase(instrToTrade.tradingsymbol)){
+                        if(posList.get("net").get(i).netQuantity != Constants.QUANTITY){
+
+                            isOrderPending=true;
+                            int qty = posList.get("net").get(i).netQuantity;
+                            String sym = posList.get("net").get(i).tradingSymbol;
+                            logger.info("net Quantity filled for Trading Symbol >> " + sym + " is >> " + qty);
+
+                        }else{
+
+                            logger.info(" ********************** Square off completed ********************** ");
+
+                            logger.info("No of net Positions >> " + posList.get("net").size());
+
+                            int netQty = posList.get("net").get(i).netQuantity;
+                            String tradingSymbol = posList.get("net").get(i).tradingSymbol;
+                            double buym2m = posList.get("net").get(i).buym2m;
+                            double buyPrice = posList.get("net").get(i).buyPrice;
+                            double buyQuantity = posList.get("net").get(i).buyQuantity;
+                            double buyValue = posList.get("net").get(i).buyValue;
+                            double closePrice = posList.get("net").get(i).closePrice;
+                            double dayBuyPrice = posList.get("net").get(i).dayBuyPrice;
+                            double dayBuyQuantity = posList.get("net").get(i).dayBuyQuantity;
+                            double dayBuyValue = posList.get("net").get(i).dayBuyValue;
+                            double daySellPrice = posList.get("net").get(i).daySellPrice;
+                            double daySellQuantity = posList.get("net").get(i).daySellQuantity;
+                            double daySellValue = posList.get("net").get(i).daySellValue;
+                            String  exchange = posList.get("net").get(i).exchange;
+                            String instrumentToken = posList.get("net").get(i).instrumentToken;
+                            double lastPrice = posList.get("net").get(i).lastPrice;
+                            double m2m = posList.get("net").get(i).m2m;
+                            double multiplier = posList.get("net").get(i).multiplier;
+                            double netValue = posList.get("net").get(i).netValue;
+                            double overnightQuantity = posList.get("net").get(i).overnightQuantity;
+                            double pnl = posList.get("net").get(i).pnl;
+                            String product = posList.get("net").get(i).product;
+                            double realised = posList.get("net").get(i).realised;
+                            double sellm2m = posList.get("net").get(i).sellm2m;
+                            double sellPrice = posList.get("net").get(i).sellPrice;
+                            double sellQuantity = posList.get("net").get(i).sellQuantity;
+                            double sellValue = posList.get("net").get(i).sellValue;
+                            double unrealised = posList.get("net").get(i).unrealised;
+                            double value = posList.get("net").get(i).value;
+
+                            logger.info("netQty >> " + netQty + " tradingSymbol >> " + tradingSymbol + " buym2m >> " + buym2m + " buyPrice>> " +
+                                    buyPrice + " buyQuantity >> " + buyQuantity + " buyValue >> " + buyValue + " closePrice>> " + closePrice +
+                                    " dayBuyPrice >> " + dayBuyPrice + " dayBuyQuantity >> "  + dayBuyQuantity + " dayBuyValue >> "  + dayBuyValue +
+                                    " daySellPrice >> "  + daySellPrice + " daySellQuantity >> " + daySellQuantity + " daySellValue >> "  + daySellValue +
+                                    " exchange >> "  + exchange + " instrumentToken >> "  +  instrumentToken + " lastPrice >> "  + lastPrice + " m2m >> "  +
+                                    m2m + " multiplier >> "  + multiplier + " netValue >> " + netValue + " overnightQuantity >> " + overnightQuantity +
+                                    " pnl >> " + pnl + " >> " + " product >> " + product + " realised >> "  + realised + " sellm2m >> "  + sellm2m +
+                                    " sellPrice >> "  + sellPrice + " sellQuantity >> "  + sellQuantity + " sellValue >> " + sellValue + " unrealised >> " +
+                                    unrealised + " value >> " + value
+                            );
+                        }
+                    }
+                }
+            }
         }catch(KiteException e){
             logger.log(Level.ERROR, e.getMessage(), e);
         }catch(IOException e){
             logger.log(Level.ERROR, e.getMessage(), e);
-        }catch(InterruptedException e){
-            logger.log(Level.ERROR, e.getMessage(), e);
         }
     }
 
-    public void waitForSquareOff(Order order){
+    public void waitForSquareOff(Order order, Instrument instrToTrade){
 
         logger.info("-------------- Inside waitForSquareOff ---------------------");
 
         boolean isOrderPending = true;
         try{
 
-            List<Order> orderHist = kiteConnect.getOrderHistory(order.orderId);
+            /*List<Order> orderHist = kiteConnect.getOrderHistory(order.orderId);
             for(Order stage : orderHist){
                 if(stage.status.equalsIgnoreCase(Constants.ORDER_COMPLETED)){
                     logger.info("Square OFF was successful");
@@ -363,13 +427,72 @@ public class TradeExecutor {
             if(isOrderPending){
                 Thread.sleep(2000);
                 waitForSquareOff(order);
+            }*/
+
+            while(isOrderPending){
+                Map<String, List<Position>> posList = exampleImpl.getPositions(kiteConnect);
+                int noOfPos = posList.get("net").size();
+                for(int i=0; i< noOfPos; i++){
+                    if(posList.get("net").get(i).tradingSymbol.equalsIgnoreCase(instrToTrade.tradingsymbol)){
+                        if(posList.get("net").get(i).netQuantity != 0){
+                            isOrderPending=true;
+                            int qty = posList.get("net").get(i).netQuantity;
+                            String sym = posList.get("net").get(i).tradingSymbol;
+                            logger.info("net Quantity of " + sym + " is >> " + qty);
+                        }else{
+
+                            logger.info(" ********************** Square off completed ********************** ");
+
+                            logger.info("No of net Positions >> " + posList.get("net").size());
+
+                            int netQty = posList.get("net").get(i).netQuantity;
+                            String tradingSymbol = posList.get("net").get(i).tradingSymbol;
+                            double buym2m = posList.get("net").get(i).buym2m;
+                            double buyPrice = posList.get("net").get(i).buyPrice;
+                            double buyQuantity = posList.get("net").get(i).buyQuantity;
+                            double buyValue = posList.get("net").get(i).buyValue;
+                            double closePrice = posList.get("net").get(i).closePrice;
+                            double dayBuyPrice = posList.get("net").get(i).dayBuyPrice;
+                            double dayBuyQuantity = posList.get("net").get(i).dayBuyQuantity;
+                            double dayBuyValue = posList.get("net").get(i).dayBuyValue;
+                            double daySellPrice = posList.get("net").get(i).daySellPrice;
+                            double daySellQuantity = posList.get("net").get(i).daySellQuantity;
+                            double daySellValue = posList.get("net").get(i).daySellValue;
+                            String  exchange = posList.get("net").get(i).exchange;
+                            String instrumentToken = posList.get("net").get(i).instrumentToken;
+                            double lastPrice = posList.get("net").get(i).lastPrice;
+                            double m2m = posList.get("net").get(i).m2m;
+                            double multiplier = posList.get("net").get(i).multiplier;
+                            double netValue = posList.get("net").get(i).netValue;
+                            double overnightQuantity = posList.get("net").get(i).overnightQuantity;
+                            double pnl = posList.get("net").get(i).pnl;
+                            String product = posList.get("net").get(i).product;
+                            double realised = posList.get("net").get(i).realised;
+                            double sellm2m = posList.get("net").get(i).sellm2m;
+                            double sellPrice = posList.get("net").get(i).sellPrice;
+                            double sellQuantity = posList.get("net").get(i).sellQuantity;
+                            double sellValue = posList.get("net").get(i).sellValue;
+                            double unrealised = posList.get("net").get(i).unrealised;
+                            double value = posList.get("net").get(i).value;
+
+                            logger.info("netQty >> " + netQty + " tradingSymbol >> " + tradingSymbol + " buym2m >> " + buym2m + " buyPrice>> " +
+                            buyPrice + " buyQuantity >> " + buyQuantity + " buyValue >> " + buyValue + " closePrice>> " + closePrice +
+                            " dayBuyPrice >> " + dayBuyPrice + " dayBuyQuantity >> "  + dayBuyQuantity + " dayBuyValue >> "  + dayBuyValue +
+                            " daySellPrice >> "  + daySellPrice + " daySellQuantity >> " + daySellQuantity + " daySellValue >> "  + daySellValue +
+                            " exchange >> "  + exchange + " instrumentToken >> "  +  instrumentToken + " lastPrice >> "  + lastPrice + " m2m >> "  +
+                             m2m + " multiplier >> "  + multiplier + " netValue >> " + netValue + " overnightQuantity >> " + overnightQuantity +
+                            " pnl >> " + pnl + " >> " + " product >> " + product + " realised >> "  + realised + " sellm2m >> "  + sellm2m +
+                            " sellPrice >> "  + sellPrice + " sellQuantity >> "  + sellQuantity + " sellValue >> " + sellValue + " unrealised >> " +
+                            unrealised + " value >> " + value
+                            );
+                        }
+                    }
+                }
             }
 
         }catch(KiteException e){
             logger.log(Level.ERROR, e.getMessage(), e);
         }catch(IOException e){
-            logger.log(Level.ERROR, e.getMessage(), e);
-        }catch(InterruptedException e){
             logger.log(Level.ERROR, e.getMessage(), e);
         }
     }
@@ -392,12 +515,12 @@ public class TradeExecutor {
 
     }
 
-    public void printQuoteContent(Instrument atmCEInstrument) throws KiteException, IOException {
+    public void printQuoteContent(Instrument instrument) throws KiteException, IOException {
 
         try {
-            Map<String, Quote> AtmCEQuoteBuyLevel = exampleImpl.getQuoteForSingleInstrument(kiteConnect, atmCEInstrument);
+            Map<String, Quote> AtmCEQuoteBuyLevel = exampleImpl.getQuoteForSingleInstrument(kiteConnect, instrument);
 
-            Quote quote = AtmCEQuoteBuyLevel.get(Long.toString(atmCEInstrument.getInstrument_token()));
+            Quote quote = AtmCEQuoteBuyLevel.get(Long.toString(instrument.getInstrument_token()));
             double volumeTradedToday = quote.volumeTradedToday;
             double lastTradedQuantity = quote.lastTradedQuantity;
             Date lastTradedTime = quote.lastTradedTime;
@@ -420,7 +543,7 @@ public class TradeExecutor {
             double depthSellPrice = quote.depth.sell.get(0).getPrice();
             int depthSellOrders = quote.depth.sell.get(0).getOrders();
 
-            logger.info(" last_price >> " + last_price + " AvgPrice >> " + averagePrice + " LTQty >> " + lastTradedQuantity + " net_change >> "
+            logger.info(instrument.getTradingsymbol() + " >> last_price >> " + last_price + " AvgPrice >> " + averagePrice + " LTQty >> " + lastTradedQuantity + " net_change >> "
                     + net_change + " BuyQty >> " + buy_quantity + " SellQty >> " + sellQuantity + " ohlcO >> " + ohlcOpen + " ohlcH >> " + ohlcHigh +
                     " ohlcL >> " + ohlcLow + " ohlcC >> " + ohlcClose + " OI >> " + oi + " depthBuyOrders >> " + depthBuyOrders + " depthBuyQty >> "
                     + depthBuyQuantity + " depthBuyPrice >> " + depthBuyPrice + " depthSellOrders >> " + depthSellOrders + " depthSellQty >> " +
@@ -432,11 +555,11 @@ public class TradeExecutor {
         }
     }
 
-    public boolean isBearish(OHLCData ohlcData, List<Double> lastMinPriceList){
+    public String findCurrentTrend(){
 
-        logger.info("-------------- Inside isBearish ---------------------");
+        logger.info("-------------- Inside findCurrentTrend ---------------------");
 
-        boolean isBearish = false;
+        String currentTrend = "";
 
         try{
 
@@ -447,29 +570,52 @@ public class TradeExecutor {
             logger.info("No of Price to be analyzed : " + lastMinPriceList.size());
 
             for(int i=0; i<lastMinPriceList.size()-1; i++){
-
-                if(lastMinPriceList.get(i) > lastMinPriceList.get(i+1))
+                if(lastMinPriceList.get(i).doubleValue() > lastMinPriceList.get(i+1).doubleValue())
                     ++noOfFall;
-                else if(lastMinPriceList.get(i) == lastMinPriceList.get(i+1))
-                    ++nochange;
-                else
+                else if(lastMinPriceList.get(i).doubleValue() < lastMinPriceList.get(i+1).doubleValue())
                     ++noOfRise;
+                else if(lastMinPriceList.get(i).doubleValue() == lastMinPriceList.get(i+1).doubleValue())
+                    ++nochange;
             }
 
-            double divisor = lastMinPriceList.size();
+            double priceRangeDiff = lastMinPriceList.get(lastMinPriceList.size()-1) - lastMinPriceList.get(0);
+            double highLowDiff = lastOhlc.getHigh()-lastOhlc.getLow();
+
+            double divisor = lastMinPriceList.size()-1;
 
             double fallPercentage = (noOfFall/divisor)*100;
             double flatPercentage = (nochange/divisor)*100;
             double risePercentage = (noOfRise/divisor)*100;
 
-            if((fallPercentage > 70 || flatPercentage > 70) && ((ohlcData.getHigh()-ohlcData.getLow()>12)))
-                isBearish = true;
+            logger.info("fallPercentage >> " + fallPercentage);
+            logger.info("risePercentage >> " + risePercentage);
+            logger.info("flatPercentage >> " + flatPercentage);
+
+            if((fallPercentage > 60)){
+                logger.info("highLowDiff >> " + highLowDiff);
+                logger.info("Analysis indicates a Bearish trend. lastMinPriceList >> " + lastMinPriceList);
+                logger.info("Price range diff for Bearish Trend >> " + priceRangeDiff);
+                currentTrend = Constants.BEARISH;
+            }
+            else if((risePercentage > 60)){
+                logger.info("highLowDiff >> " + highLowDiff);
+                logger.info("Analysis indicates a bullish trend. lastMinPriceList >> " + lastMinPriceList);
+                logger.info("Price range diff for Bullish Trend >> " + priceRangeDiff);
+                currentTrend = Constants.BULLISH;
+            }
+            else{
+                logger.info("highLowDiff >> " + highLowDiff);
+                logger.info("Analysis indicates a Flat trend. lastMinPriceList >> " + lastMinPriceList);
+                logger.info("Price range diff for Flat trend >> " + priceRangeDiff);
+                currentTrend = Constants.FLAT;
+            }
+
 
         }catch(Exception e){
             logger.log(Level.ERROR, e.getMessage(), e);
         }
 
-        return isBearish;
+        return currentTrend;
     }
 
     public void catchRallyIfAny(Instrument atmCEInstrument, double sellPrice){
@@ -522,29 +668,90 @@ public class TradeExecutor {
         logger.info(atmCEInstrument.getTradingsymbol() + " is trading @ " + price);
     }
 
-    public void getDataForTimePeriod(OHLCData lastOhlc,Instrument atmCEInstrument, List<Double> lastMinPriceList, int timePeriodInSeconds){
+    public String isPriceMovementBullish(Instrument instrument, int timePeriodInSeconds){
+
+        String currentTrend = "";
 
         try{
 
-            logger.info("Start Analyzing data for last few seconds ...");
+            Instrument atmCE = getMoneynessInstrument(Constants.ATM, callMoneynessMap, bankNiftyOptionsMap, Constants.CE_INDICATOR);
+            Instrument atmPE = getMoneynessInstrument(Constants.ATM, putMoneynessMap, bankNiftyOptionsMap, Constants.PE_INDICATOR);
 
-            for(int i=0; i<timePeriodInSeconds; i++){
+            List<Double> premDiffList = new ArrayList<Double>();
+            double cumulativePremiumDiff = 0;
 
-                Map<String, Quote> atmCEQuote = exampleImpl.getQuoteForSingleInstrument(kiteConnect, atmCEInstrument);
-                double atmCESellPriceInMkt =  atmCEQuote.get(Long.toString(atmCEInstrument.getInstrument_token())).depth.buy.get(0).getPrice();
-                lastMinPriceList.add(atmCESellPriceInMkt);
-                printQuoteContent(atmCEInstrument);
-                //logger.info(atmCEInstrument.getTradingsymbol() + " is trading @ " + atmCESellPriceInMkt);
+            boolean marginNotAchieved = true;
+            int counter = 0;
 
-                if(i==0)
-                    lastOhlc.setOpen(atmCESellPriceInMkt);
+            logger.info("Start Analyzing data for last " + timePeriodInSeconds + " seconds for Instrument >> " + instrument.getTradingsymbol());
+
+            while(marginNotAchieved){
+
+                Map<String, Quote> instrumentQuote = exampleImpl.getQuoteForSingleInstrument(kiteConnect, instrument);
+                double instrumentSellPriceInMkt =  instrumentQuote.get(Long.toString(instrument.getInstrument_token())).depth.sell.get(0).getPrice();
+                lastMinPriceList.add(instrumentSellPriceInMkt);
+                printQuoteContent(bankNiftyFuture);
+                printQuoteContent(atmCE);
+                printQuoteContent(atmPE);
+
+                //logger.info(instrument.getTradingsymbol() + " is trading @ " + instrumentSellPriceInMkt);
+
+                /*if(i==0)
+                    lastOhlc.setOpen(instrumentSellPriceInMkt);
                 if(i==29)
-                    lastOhlc.setClose(atmCESellPriceInMkt);
+                    lastOhlc.setClose(instrumentSellPriceInMkt);*/
+                if(counter !=0){
+                    double premDiff = lastMinPriceList.get(counter) - lastMinPriceList.get(counter-1);
+                    cumulativePremiumDiff = cumulativePremiumDiff + premDiff;
+                }
 
-                Thread.sleep(1000);
+                /*cumulativePremiumDiff=0;
+                for(int k=0; k<premDiffList.size();k++){
+                    cumulativePremiumDiff = cumulativePremiumDiff + premDiffList.get(k);
+                }*/
+
+                if(cumulativePremiumDiff > 3){
+                    marginNotAchieved=false;
+                    logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~ Cumulative premium difference is >> "+ cumulativePremiumDiff +". Premium of " + instrument.tradingsymbol + " is rising ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ");
+                    currentTrend = Constants.BULLISH;
+                    break;
+                }else if(cumulativePremiumDiff < -3){
+                    marginNotAchieved=false;
+                    logger.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~ Cumulative premium difference is >> "+ cumulativePremiumDiff + ". Premium of " + instrument.tradingsymbol + " is Falling ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ");
+                    currentTrend = Constants.BEARISH;
+                    break;
+                }
+
+                Thread.sleep(500);
+                counter=counter+1;
+
+                if(counter > 30){
+                    logger.info("cumulativePremiumDiff >> " + cumulativePremiumDiff);
+                    logger.info("Finished Analyzing data for last " + timePeriodInSeconds + " seconds for Instrument >> " + instrument.getTradingsymbol());
+                    logger.info("30 counts completed .....looping afresh...");
+                    logger.info("Prices collected in this loop : " + lastMinPriceList);
+                    counter = 0;
+                    lastMinPriceList.clear();
+                }
             }
 
-            logger.info("Finished Analyzing data for last few seconds ...");
+            /* Finds high & low price from OHLCData lastOhlc & lastMinPriceList*/
+
+           /* double smallest = lastMinPriceList.get(0);
+            double largest = lastMinPriceList.get(0);
+
+            for(int i=1; i< lastMinPriceList.size(); i++)
+            {
+                if(lastMinPriceList.get(i) > largest)
+                    largest = lastMinPriceList.get(i);
+                else if (lastMinPriceList.get(i) < smallest)
+                    smallest = lastMinPriceList.get(i);
+            }
+
+            lastOhlc.setHigh(largest);
+            lastOhlc.setLow(smallest);*/
+
+
 
         }catch (KiteException e) {
             logger.error(e.message+" "+e.code+" "+e.getClass().getName());
@@ -559,6 +766,8 @@ public class TradeExecutor {
             logger.error(e.getMessage()+" "+" "+e.getClass().getName());
             logger.log(Level.ERROR, e.getMessage(), e);
         }
+
+        return currentTrend;
     }
 
     public  double findMean(OHLCData ohlcData){
@@ -575,7 +784,8 @@ public class TradeExecutor {
         return mean;
     }
 
-    public void findHighLow(OHLCData lastOhlc, List<Double> lastMinPriceList) {
+    /* Finds high & low price from OHLCData lastOhlc & lastMinPriceList*//*
+    public void findHighLow() {
 
         try{
             //assign first element of an array to largest and smallest
@@ -596,5 +806,5 @@ public class TradeExecutor {
         }catch(Exception e){
             logger.log(Level.ERROR, e.getMessage(), e);
         }
-    }
+    }*/
 }

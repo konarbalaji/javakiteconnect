@@ -79,7 +79,11 @@ public class Constants {
     public static String ORDER_COMPLETED = "COMPLETE";
     public static String ORDER_OPEN = "OPEN";
 
-    public static int QUANTITY = 60;
-    public static int ANALYZE_INTERVAL = 30;
+    public static int QUANTITY = 20;
+    public static int ANALYZE_INTERVAL = 15;
+
+    public static String BULLISH = "BULLISH";
+    public static String BEARISH = "BEARISH";
+    public static String FLAT = "FLAT";
 
 }

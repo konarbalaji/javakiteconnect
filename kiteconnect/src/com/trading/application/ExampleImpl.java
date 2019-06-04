@@ -1,6 +1,7 @@
 package com.trading.application;
 
 import com.neovisionaries.ws.client.WebSocketException;
+import com.trading.application.utils.OHLCData;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
 import com.zerodhatech.kiteconnect.utils.Constants;
@@ -341,14 +342,22 @@ public class ExampleImpl {
 
     /* Get ohlc and lastprice for multiple instruments at once.
      * Users can either pass exchange with tradingsymbol or instrument token only. For example {NSE:NIFTY 50, BSE:SENSEX} or {256265, 265}*/
-    public void getOHLC(KiteConnect kiteConnect, String[] instrument_exch_token) throws KiteException, IOException {
+    public OHLCData getOHLC(KiteConnect kiteConnect, String[] instrument_exch_token) throws KiteException, IOException {
         //String[] instruments = {"256265","BSE:INFY", "NSE:INFY", "NSE:NIFTY 50"};
 
-        logger.info(kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").lastPrice);
-        logger.info(kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.open);
-        logger.info(kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.high);
-        logger.info(kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.low);
-        logger.info(kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.close);
+        double open = kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.open;
+        double high = kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.high;
+        double low = kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.low;
+        double close = kiteConnect.getOHLC(instrument_exch_token).get("instrument_exch_token").ohlc.close;
+
+        OHLCData ohlc = new OHLCData();
+        ohlc.setOpen(open);
+        ohlc.setHigh(high);
+        ohlc.setLow(low);
+        ohlc.setClose(close);
+
+        return ohlc;
+
     }
 
     /** Get last price for multiple instruments at once.
